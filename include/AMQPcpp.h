@@ -108,7 +108,7 @@ class AMQPMessage {
 		~AMQPMessage();
 
 		void setMessage(const char * data,uint32_t length);
-		char * getMessage(uint32_t* length);
+        char * getMessage(uint32_t* length);
 
 		void addHeader(std::string name, amqp_bytes_t * value);
 		void addHeader(std::string name, uint64_t * value);
@@ -121,7 +121,7 @@ class AMQPMessage {
 		std::string getConsumerTag();
 
 		void setMessageCount(int count);
-		int getMessageCount();
+        int getMessageCount();
 
 		void setExchange(amqp_bytes_t exchange);
 		void setExchange(std::string exchange);
@@ -140,11 +140,11 @@ class AMQPMessage {
 
 class AMQPBase {
 	protected:
-		std::string name;
+        std::string name;
 		short parms;
 		amqp_connection_state_t * cnn;
 		int channelNum;
-		AMQPMessage * pmessage;
+        std::unique_ptr<AMQPMessage> pmessage;
 
 		short opened;
 
@@ -204,9 +204,9 @@ class AMQPQueue : public AMQPBase  {
 		void Ack();
 		void Ack(uint32_t delivery_tag);
 
-		AMQPMessage * getMessage() {
-			return pmessage;
-		}
+        AMQPMessage * getMessage() {
+            return pmessage.get();
+        }
 
 		uint32_t getCount() {
 			return count;
@@ -259,7 +259,7 @@ class AMQPExchange : public AMQPBase {
 		void Bind(std::string queueName, std::string key);
 
 		void Publish(std::string message, std::string key);
-		void Publish(char * data, uint32_t length, std::string key);
+        void Publish(char * data, uint32_t length, std::string key);
 
 		void setHeader(std::string name, int value);
 		void setHeader(std::string name, std::string value);

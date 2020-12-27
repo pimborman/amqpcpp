@@ -11,11 +11,11 @@
 using namespace std;
 
 AMQPQueue::AMQPQueue(amqp_connection_state_t * cnn, int channelNum) {
-	this->cnn = cnn;
+    this->cnn = cnn;
 	this->channelNum = channelNum;
+    this->name = "";
 
 	delivery_tag =0;
-	pmessage=NULL;
 	openChannel();
 }
 
@@ -25,18 +25,15 @@ AMQPQueue::AMQPQueue(amqp_connection_state_t * cnn, int channelNum, string name)
 	this->name = name;
 
 	delivery_tag =0;
-	pmessage=NULL;
-	openChannel();
+    openChannel();
 }
 
 AMQPQueue::~AMQPQueue() {
-	if (pmessage)
-		delete pmessage;
 }
 
 // Declare command /* 50, 10; 3276810 */
 void AMQPQueue::Declare() {
-	parms=0;
+    parms=AMQP_AUTODELETE;
 	sendDeclareCommand();
 }
 
@@ -53,63 +50,28 @@ void AMQPQueue::Declare(string name, short parms) {
 }
 
 void AMQPQueue::sendDeclareCommand() {
-	if (!name.size())
-		throw AMQPException("the queue must to have the name");
 
-	amqp_bytes_t queue_name = amqp_cstring_bytes(name.c_str());
-
-	/*
-		amqp_basic_properties_t props;
-		props._flags = AMQP_BASIC_CONTENT_TYPE_FLAG;
-		props.content_type = amqp_cstring_bytes("text/plain");
-	*/
-	amqp_table_t args;
-	args.num_entries = 0;
-	args.entries = NULL;
-
+    amqp_bytes_t queue_name = name.empty() ? amqp_empty_bytes : amqp_cstring_bytes(name.c_str());
 	amqp_boolean_t exclusive =  (parms & AMQP_EXCLUSIVE)	? 1:0;
 	amqp_boolean_t passive =    (parms & AMQP_PASSIVE)		? 1:0;
 	amqp_boolean_t autodelete = (parms & AMQP_AUTODELETE)	? 1:0;
 	amqp_boolean_t durable =    (parms & AMQP_DURABLE)		? 1:0;
 
-	amqp_queue_declare_t s;
-		s.ticket = 0;
-		s.queue = queue_name;
-		s.passive = passive;
-		s.durable = durable;
-		s.exclusive = exclusive;
-		s.auto_delete = autodelete;
-		s.nowait = 0;
-		s.arguments = args;
+    amqp_table_t args = amqp_empty_table;
+    amqp_queue_declare_ok_t* rep = amqp_queue_declare(*cnn, channelNum, queue_name, passive, durable, exclusive, autodelete, args);
+    amqp_rpc_reply_t res = amqp_get_rpc_reply(*cnn);
+    AMQPBase::checkReply(&res);
 
-	amqp_method_number_t method_ok = AMQP_QUEUE_DECLARE_OK_METHOD;
-	amqp_rpc_reply_t res = amqp_simple_rpc(*cnn, channelNum, AMQP_QUEUE_DECLARE_METHOD, &method_ok , &s);
+    amqp_bytes_t queue = amqp_bytes_malloc_dup(rep->queue);
+    count = rep->message_count;
+    if (queue.bytes == NULL)
+    {
+        throw AMQPException("received queue name NULL, name too long?");
+    }
 
-	AMQPBase::checkReply(&res);
+    this->name = std::string(static_cast<char*>(queue.bytes), queue.len);
 
-	amqp_release_buffers(*cnn);
-	char error_message [256];
-	memset(error_message,0,256);
-
-	if (res.reply_type == AMQP_RESPONSE_NONE) {
-		throw AMQPException("error the QUEUE.DECLARE command, response none");
-	}
-
-	if (res.reply.id == AMQP_CHANNEL_CLOSE_METHOD) {
-		amqp_channel_close_t * err = (amqp_channel_close_t *) res.reply.decoded;
-
-		int c_id = 	(int) err->class_id;
-		sprintf( error_message, "server error %u, message '%s' class=%d method=%u ", err->reply_code, (char*)err->reply_text.bytes, c_id,err->method_id);
-		opened=0;
-
-		throw AMQPException(&res);
-	} else if (res.reply.id == AMQP_QUEUE_DECLARE_OK_METHOD) {
-			amqp_queue_declare_ok_t* data = (amqp_queue_declare_ok_t*) res.reply.decoded;
-			count = data->message_count;
-	} else {
-		sprintf( error_message, "error the Declare command  receive method=%d", res.reply.id);
-		throw AMQPException(error_message);
-	}
+    amqp_maybe_release_buffers(*cnn);
 }
 
 // Delete command  /* 50, 40; 3276840 */
@@ -254,12 +216,9 @@ void AMQPQueue::sendGetCommand() {
 	char error_message[256];
 	amqp_frame_t frame;
 
-	amqp_release_buffers(*cnn);
+    amqp_maybe_release_buffers(*cnn);
 
-	if (pmessage)
-		delete(pmessage);
-
-	pmessage = new AMQPMessage(this);
+    pmessage = std::make_unique<AMQPMessage>(this);
 
 	if ( res.reply_type == AMQP_RESPONSE_NONE) {
 		throw AMQPException("error the Get command, response none");
@@ -356,7 +315,7 @@ void AMQPQueue::sendGetCommand() {
 	        pmessage->setMessage(tmp,len);
 		free(tmp);
 	}
-	amqp_release_buffers(*cnn);
+    amqp_maybe_release_buffers(*cnn);
 }
 
 void AMQPQueue::addEvent( AMQPEvents_e eventType, int (*event)(AMQPMessage*)) {
@@ -443,12 +402,7 @@ void AMQPQueue::sendConsumeCommand() {
 //		consume_ok = (amqp_basic_consume_ok_t*) res.reply.decoded;
 //		//printf("****** consume Ok c_tag=%s", consume_ok->consumer_tag.bytes );
 //	}
-#if __cplusplus > 199711L // C++11 or greater
-        unique_ptr<AMQPMessage> message ( new AMQPMessage(this) );
-#else
-	auto_ptr<AMQPMessage> message ( new AMQPMessage(this) );
-#endif
-	pmessage = message.get();
+    pmessage = std::make_unique<AMQPMessage>(this);
 
 	amqp_frame_t frame;
 	char * buf=NULL, *pbuf = NULL;
@@ -463,7 +417,9 @@ void AMQPQueue::sendConsumeCommand() {
 		//if (result <= 0) return;
 		//according to definition of the amqp_simple_wait_frame
 		//result = 0 means success	
-		if (result < 0) return;
+        if (result != AMQP_STATUS_OK) {
+            throw AMQPException("amqp_simple_wait_frame returned " + std::to_string(result));
+        }
 		//printf("frame method.id=%d  frame.frame_type=%d\n",frame.payload.method.id, frame.frame_type);
 
 		if (frame.frame_type != AMQP_FRAME_METHOD){
@@ -476,9 +432,9 @@ void AMQPQueue::sendConsumeCommand() {
 			//cout << "CANCEL OK method.id="<< frame.payload.method.id << endl;
 			if ( events.find(AMQP_CANCEL) != events.end() ) {
 #if __cplusplus > 199711L // C++11 or greater
-                                events[AMQP_CANCEL](pmessage);
+                                events[AMQP_CANCEL](pmessage.get());
 #else                            
-				(*events[AMQP_CANCEL])(pmessage);
+                (*events[AMQP_CANCEL])(pmessage.get());
 #endif                                
 			}
 			break;
@@ -543,9 +499,9 @@ void AMQPQueue::sendConsumeCommand() {
 
 		if ( events.find(AMQP_MESSAGE) != events.end() ) {
 #if __cplusplus > 199711L // C++11 or greater
-                        int res = events[AMQP_MESSAGE](pmessage);
+                        int res = events[AMQP_MESSAGE](pmessage.get());
 #else                            
-			int res = (int)(*events[AMQP_MESSAGE])(pmessage);
+            int res = (int)(*events[AMQP_MESSAGE])(pmessage.get());
 #endif 
 			
 			//cout << "res="<<res<<endl;

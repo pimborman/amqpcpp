@@ -17,7 +17,7 @@ int main () {
 		while (  1 ) {
 			qu2->Get(AMQP_NOACK);
 
-			AMQPMessage * m= qu2->getMessage();
+            AMQPMessage * m= qu2->getMessage();
 			
 			cout << "count: "<<  m->getMessageCount() << endl;											 
 			if (m->getMessageCount() > -1) {

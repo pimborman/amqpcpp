@@ -6,47 +6,45 @@ int main (int argc, char** argv) {
 
 
 
-	try {
-//		AMQP amqp;
-//		AMQP amqp(AMQPDEBUG);
-	
-		AMQP amqp("123123:akalend@localhost:5673/private");		// all connect string
+    try {
+        //		AMQP amqp;
+        //		AMQP amqp(AMQPDEBUG);
 
-		AMQPExchange * ex = amqp.createExchange("e");
-		ex->Declare("e", "fanout");
+        AMQP amqp("guest:guest@localhost:5672//");		// all connect string
 
-		AMQPQueue * qu2 = amqp.createQueue("q2");
-		qu2->Declare();
-		qu2->Bind( "e", "");		
+        AMQPExchange * ex = amqp.createExchange("e");
+        ex->Declare("e", "fanout");
 
-		string ss = "message 1 ";
-		/* test very long message
-		ss = ss+ss+ss+ss+ss+ss+ss;
-		ss += ss+ss+ss+ss+ss+ss+ss;
-		ss += ss+ss+ss+ss+ss+ss+ss;
-		ss += ss+ss+ss+ss+ss+ss+ss;
-		ss += ss+ss+ss+ss+ss+ss+ss;
-*/
+        //AMQPQueue * qu2 = amqp.createQueue("q2");
+        //qu2->Declare();
+        //qu2->Bind( "e", "");
 
-		ex->setHeader("Delivery-mode", 2);
-		ex->setHeader("Content-type", "text/text");
-		ex->setHeader("Content-encoding", "UTF-8");
+        ex->setHeader("Delivery-mode", 2);
+        ex->setHeader("Content-type", "text/text");
+        ex->setHeader("Content-encoding", "UTF-8");
 
-		ex->Publish(  ss , ""); // publish very long message
-		
-		ex->Publish(  "message 2 " , "");
-		ex->Publish(  "message 3 " , "");
-		
-		
-		if (argc==2) {
-			AMQPQueue * qu = amqp.createQueue();			
-			qu->Cancel(   amqp_cstring_bytes(argv[1]) );
-		}												
-						
-	} catch (AMQPException e) {
-		std::cout << e.getMessage() << std::endl;
-	}
+        string ss = "message 1 ";
+        // test very long message
+        /*
+        ss = ss+ss+ss+ss+ss+ss+ss;
+        ss += ss+ss+ss+ss+ss+ss+ss;
+        ss += ss+ss+ss+ss+ss+ss+ss;
+        ss += ss+ss+ss+ss+ss+ss+ss;
+        ss += ss+ss+ss+ss+ss+ss+ss;
+        */
+        ex->Publish(ss ,"");
+        //ex->Publish("the following messag is empty","");
+        //ex->Publish("","");
 
-	return 0;
+        if (argc==2) {
+            AMQPQueue * qu = amqp.createQueue();
+            qu->Cancel(   amqp_cstring_bytes(argv[1]) );
+        }
+
+    } catch (AMQPException e) {
+        std::cout << e.getMessage() << std::endl;
+    }
+
+    return 0;
 
 }

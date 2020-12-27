@@ -31,8 +31,17 @@ add_library(
 )
 target_include_directories(amqpcpp-static PUBLIC include/)
 
-add_subdirectory(rabbitmq-c)
-target_include_directories(rabbitmq PUBLIC rabbitmq-c/librabbitmq/)
+#add_subdirectory(rabbitmq-c)
+#target_include_directories(rabbitmq PUBLIC rabbitmq-c/librabbitmq/)
 
 target_link_libraries(amqpcpp rabbitmq ssl crypto)
 target_link_libraries(amqpcpp-static rabbitmq ssl crypto)
+
+add_executable(example_publish examples/example_publish.cpp)
+target_link_libraries(example_publish amqpcpp)
+
+add_executable(example_consume examples/example_consume.cpp)
+target_link_libraries(example_consume amqpcpp)
+
+add_executable(example_get examples/example_get.cpp)
+target_link_libraries(example_get amqpcpp)

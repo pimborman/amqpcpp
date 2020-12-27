@@ -16,8 +16,8 @@ AMQPBase::~AMQPBase() {
 
 void AMQPBase::checkReply(amqp_rpc_reply_t * res) {
 	checkClosed(res);
-	if (res->reply_type != AMQP_RESPONSE_NORMAL )
-	throw AMQPException(res);
+    if (res->reply_type != AMQP_RESPONSE_NORMAL)
+        throw AMQPException(res);
 }
 
 void AMQPBase::checkClosed(amqp_rpc_reply_t * res) {

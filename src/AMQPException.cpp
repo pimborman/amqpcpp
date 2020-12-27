@@ -20,7 +20,10 @@ AMQPException::AMQPException(string action, int error_code)
 }
 
 AMQPException::AMQPException( amqp_rpc_reply_t * res) {
-	if( res->reply_type == AMQP_RESPONSE_LIBRARY_EXCEPTION) {
+    if (res->reply_type == AMQP_RESPONSE_NONE) {
+        this->message = "response none";
+    }
+    if( res->reply_type == AMQP_RESPONSE_LIBRARY_EXCEPTION) {
 		this->message = res->library_error ? strerror(res->library_error) : "end-of-stream";
 	}
 

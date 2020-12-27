@@ -177,7 +177,17 @@ void AMQPExchange::sendBindCommand(const char * queue, const char * key){
 }
 
 void AMQPExchange::Publish(string message, string key) {
-	sendPublishCommand(amqp_cstring_bytes(message.c_str()), key.c_str());
+    if (message.size()>0)
+    {
+        amqp_bytes_t messageByte;
+        messageByte.bytes = const_cast<char *>(message.data());
+        messageByte.len = message.size();
+        sendPublishCommand(messageByte, key.c_str());
+    }
+    else
+    {
+        sendPublishCommand(amqp_empty_bytes, key.c_str());
+    }
 }
 
 void AMQPExchange::Publish(char * data, uint32_t length, string key) {
